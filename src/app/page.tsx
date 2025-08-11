@@ -453,7 +453,7 @@ export default function Home() {
   return (
     <main
       className="relative w-full min-h-[100svh] overflow-hidden flex flex-col items-center justify-center"
-      style={{ background: opened ? "transparent" : "#17062b" }}
+      style={{ background: opened ? "transparent" : "#000000" }}
     >
       {!opened && (
         <>
