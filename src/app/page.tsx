@@ -485,7 +485,7 @@ export default function Home() {
       {!opened && (
         <>
           <h1 className="text-white text-lg sm:text-xl md:text-2xl mb-4 text-center">
-            To: Andrea Michel Rios
+            Para: Andrea Michel Rios
           </h1>
           {!hideEnvelope && (
             <button
