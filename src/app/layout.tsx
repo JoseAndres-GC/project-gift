@@ -14,7 +14,7 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Regalo para Andrea Michel",
-  description: "Sorpresa de cumpleaños",
+  description: "✨ Sorpresa de cumpleaños ✨",
 };
 
 export default function RootLayout({

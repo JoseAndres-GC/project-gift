@@ -14,11 +14,11 @@ const PARTICLE_COLOR = "#ffe9ff";
 const KEEP_PROB = 0.9;
 const FORCE_TWO_LINES_ON_PORTRAIT = true;
 
-/* Lluvia de fugaces (más cantidad) */
-const METEOR_MIN_DELAY = 300; // ms entre ráfagas
-const METEOR_MAX_DELAY = 800; // ms entre ráfagas
+/* Lluvia de fugaces (más lenta y espaciada) */
+const METEOR_MIN_DELAY = 900; // ms entre ráfagas (antes 300)
+const METEOR_MAX_DELAY = 1800; // ms entre ráfagas (antes 800)
 const METEOR_BURST_MIN = 1; // cuántas por ráfaga (min)
-const METEOR_BURST_MAX = 3; // cuántas por ráfaga (max)
+const METEOR_BURST_MAX = 2; // cuántas por ráfaga (max; antes 3)
 
 /* Tipos */
 type Star = { x: number; y: number; r: number; phase: number; speed: number };
@@ -95,18 +95,27 @@ export default function Home() {
     let lines: string[] = [message];
     let yCenter = H / 2;
 
-    // 2) Pasar a 2 líneas si hace falta o si estamos en portrait
+    // 2) Pasar a 2 líneas si: fuente quedó muy chica, portrait, o el texto es largo
+    const longText = message.length >= 22;
     const needTwoLines =
-      fs <= MIN_FS + 2 || (FORCE_TWO_LINES_ON_PORTRAIT && isPortrait);
+      fs <= MIN_FS + 2 ||
+      (FORCE_TWO_LINES_ON_PORTRAIT && isPortrait) ||
+      longText;
+
     if (needTwoLines && message.includes(" ")) {
       const words = message.split(" ");
       let line1 = words.slice(0, Math.ceil(words.length / 2)).join(" ");
       let line2 = words.slice(Math.ceil(words.length / 2)).join(" ");
-      // Caso clásico “Feliz Cumpleaños”
+
+      // Casos “bonitos”
       if (/^feliz/i.test(message)) {
         line1 = "Feliz";
         line2 = message.replace(/^Feliz\s*/i, "");
+      } else if (/^que\s+tengas/i.test(message)) {
+        line1 = "Que tengas";
+        line2 = message.replace(/^que\s+tengas\s*/i, "");
       }
+
       lines = [line1, line2];
 
       fs = Math.min(200, Math.floor(W * 0.28), Math.floor(H * 0.28));
@@ -120,26 +129,28 @@ export default function Home() {
         setFont(fs);
         maxLine = Math.max(measure(lines[0]), measure(lines[1]));
       }
-      yCenter = H / 2 - (fs * LINE_GAP) / 2;
+      // Centro vertical con micro-ajuste óptico
+      yCenter = H / 2 - (fs * LINE_GAP) / 2 + fs * 0.02;
     }
 
     // Densidad / radio por tamaño de fuente
     const STEP = Math.max(5, Math.min(10, Math.round(fs / 18)));
-    particleRadiusRef.current = fs < 54 ? 1.05 : fs < 80 ? 1.2 : 1.35;
+    particleRadiusRef.current = fs < 54 ? 1.08 : fs < 80 ? 1.22 : 1.38;
 
     // Pintar y muestrear
-    ctx.save();
-    ctx.scale(SCALE, SCALE);
+    const ctx2 = ctx;
+    ctx2.save();
+    ctx2.scale(SCALE, SCALE);
     setFont(fs);
     if (lines.length === 1) {
-      ctx.fillText(lines[0], W / 2, yCenter);
+      ctx2.fillText(lines[0], W / 2, yCenter);
     } else {
-      ctx.fillText(lines[0], W / 2, yCenter);
-      ctx.fillText(lines[1], W / 2, yCenter + fs * (1 + LINE_GAP));
+      ctx2.fillText(lines[0], W / 2, yCenter);
+      ctx2.fillText(lines[1], W / 2, yCenter + fs * (1 + LINE_GAP));
     }
-    ctx.restore();
+    ctx2.restore();
 
-    const img = ctx.getImageData(0, 0, off.width, off.height).data;
+    const img = ctx2.getImageData(0, 0, off.width, off.height).data;
     const pts: { x: number; y: number }[] = [];
     const yMax = off.height - STEP,
       xMax = off.width - STEP;
@@ -189,9 +200,9 @@ export default function Home() {
       // puntos del mensaje
       const targets = buildGrainPoints(message);
 
-      // origen (centro un poco abajo)
+      // origen: centro exacto
       const cx = w / 2,
-        cy = h / 2 + 40;
+        cy = h / 2;
 
       // salpicado full pantalla
       const diag = Math.hypot(w, h);
@@ -268,7 +279,7 @@ export default function Home() {
       particlesRef.current = next;
     };
 
-    // handlers de resize/orientación
+    // handlers de resize/orientación (debounce con rAF)
     let rId: number | null = null;
     const onResize = () => {
       if (rId) cancelAnimationFrame(rId);
@@ -334,7 +345,7 @@ export default function Home() {
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
 
-      // Estrellas fugaces ↘  (ráfagas más frecuentes y de 1-3)
+      // Estrellas fugaces ↘ (más despacio y menos seguidas)
       if (now >= nextMeteorAt.current) {
         const burst =
           Math.floor(
@@ -344,8 +355,8 @@ export default function Home() {
           const spawnOnTop = Math.random() < 0.7;
           const mx = spawnOnTop ? Math.random() * (w * 0.35) : -60;
           const my = spawnOnTop ? -40 : Math.random() * (h * 0.45);
-          const angle = Math.PI / 4 + (Math.random() - 0.5) * (Math.PI / 18); // 45° ± 10°
-          const speed = 8.5 + Math.random() * 6.5; // un poco más rápidas
+          const angle = Math.PI / 4 + (Math.random() - 0.5) * (Math.PI / 18);
+          const speed = 4 + Math.random() * 3.5; // <-- más lento (antes 8.5–15)
           meteorsRef.current.push({ x: mx, y: my, angle, speed, life: 1 });
         }
         nextMeteorAt.current =
@@ -362,10 +373,10 @@ export default function Home() {
         const vy = Math.sin(m.angle) * m.speed * frame;
         m.x += vx;
         m.y += vy;
-        m.life -= dt * 0.0009;
+        m.life -= dt * 0.0007; // <-- decae más lento para que se vean más tiempo
 
         const headR = 2.0,
-          tailLen = 140 * m.life,
+          tailLen = 150 * m.life,
           tailW = 5.5 * m.life;
         const ax = Math.cos(m.angle),
           ay = Math.sin(m.angle);
@@ -484,13 +495,18 @@ export default function Home() {
               className={`relative z-10 select-none transition-transform ${
                 opened ? "" : "animate-bounce hover:scale-110"
               }`}
-              style={{ outline: "none" }}
+              style={{ outline: "none", display: "block", margin: "0 auto" }}
             >
-              {/* Escala responsiva con clamp */}
+              {/* Escala responsiva con clamp + centrado */}
               <svg
                 className={`envSvg ${opened ? "is-open" : ""}`}
                 viewBox="0 0 260 180"
-                style={{ width: "clamp(160px, 40vw, 360px)", height: "auto" }}
+                style={{
+                  width: "clamp(160px, 40vw, 360px)",
+                  height: "auto",
+                  display: "block",
+                  margin: "0 auto",
+                }}
               >
                 <defs>
                   <linearGradient id="bodyGrad" x1="0" y1="0" x2="0" y2="1">
