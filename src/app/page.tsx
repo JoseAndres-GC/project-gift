@@ -2,25 +2,21 @@
 
 import { useEffect, useRef, useState } from "react";
 
-/* ===== Mensajes (ciclan con cada click) ===== */
 const MESSAGES = [
   "Feliz Cumpleaños",
   "Que tengas un gran día.",
   "Te quiero mucho, amiga",
 ];
 
-/* ===== Config ===== */
 const PARTICLE_COLOR = "#ffe9ff";
 const KEEP_PROB = 0.9;
 const FORCE_TWO_LINES_ON_PORTRAIT = true;
 
-/* Lluvia de fugaces (más lenta y espaciada) */
-const METEOR_MIN_DELAY = 900; // ms entre ráfagas (antes 300)
-const METEOR_MAX_DELAY = 1800; // ms entre ráfagas (antes 800)
-const METEOR_BURST_MIN = 1; // cuántas por ráfaga (min)
-const METEOR_BURST_MAX = 2; // cuántas por ráfaga (max; antes 3)
+const METEOR_MIN_DELAY = 900;
+const METEOR_MAX_DELAY = 1800;
+const METEOR_BURST_MIN = 1;
+const METEOR_BURST_MAX = 2;
 
-/* Tipos */
 type Star = { x: number; y: number; r: number; phase: number; speed: number };
 type Meteor = {
   x: number;
@@ -58,7 +54,6 @@ export default function Home() {
 
   const currentMsgIndexRef = useRef(0);
 
-  /* ---------- Texto a puntos (auto-fit + multilínea + responsivo) ---------- */
   function buildGrainPoints(message: string) {
     const W = window.innerWidth;
     const H = window.innerHeight;
@@ -82,7 +77,6 @@ export default function Home() {
     };
     const measure = (text: string) => ctx.measureText(text).width;
 
-    // 1) Intento 1 línea
     let fs = Math.min(140, Math.floor(W * 0.18), Math.floor(H * 0.22));
     setFont(fs);
     let wText = measure(message);
@@ -95,7 +89,6 @@ export default function Home() {
     let lines: string[] = [message];
     let yCenter = H / 2;
 
-    // 2) Pasar a 2 líneas si: fuente quedó muy chica, portrait, o el texto es largo
     const longText = message.length >= 22;
     const needTwoLines =
       fs <= MIN_FS + 2 ||
@@ -107,7 +100,6 @@ export default function Home() {
       let line1 = words.slice(0, Math.ceil(words.length / 2)).join(" ");
       let line2 = words.slice(Math.ceil(words.length / 2)).join(" ");
 
-      // Casos “bonitos”
       if (/^feliz/i.test(message)) {
         line1 = "Feliz";
         line2 = message.replace(/^Feliz\s*/i, "");
@@ -129,15 +121,12 @@ export default function Home() {
         setFont(fs);
         maxLine = Math.max(measure(lines[0]), measure(lines[1]));
       }
-      // Centro vertical con micro-ajuste óptico
       yCenter = H / 2 - (fs * LINE_GAP) / 2 + fs * 0.02;
     }
 
-    // Densidad / radio por tamaño de fuente
     const STEP = Math.max(5, Math.min(10, Math.round(fs / 18)));
     particleRadiusRef.current = fs < 54 ? 1.08 : fs < 80 ? 1.22 : 1.38;
 
-    // Pintar y muestrear
     const ctx2 = ctx;
     ctx2.save();
     ctx2.scale(SCALE, SCALE);
@@ -169,7 +158,6 @@ export default function Home() {
     return pts;
   }
 
-  /* ---------------- Animación principal (tras abrir) ---------------- */
   useEffect(() => {
     if (!opened) return;
 
@@ -177,7 +165,6 @@ export default function Home() {
     const ctx = cv.getContext("2d")!;
     const DPR = Math.max(1, Math.floor(window.devicePixelRatio || 1));
 
-    // --- crear estrellas + puntos + partículas (reusable en resize y re-form) ---
     const setupScene = (message: string) => {
       const w = window.innerWidth,
         h = window.innerHeight;
@@ -187,7 +174,6 @@ export default function Home() {
       cv.style.height = h + "px";
       ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
 
-      // estrellas
       const count = Math.floor((w * h) / 14000);
       starsRef.current = Array.from({ length: count }, () => ({
         x: Math.random() * w,
@@ -197,14 +183,11 @@ export default function Home() {
         speed: 0.6 + Math.random() * 0.8,
       }));
 
-      // puntos del mensaje
       const targets = buildGrainPoints(message);
 
-      // origen: centro exacto
       const cx = w / 2,
         cy = h / 2;
 
-      // salpicado full pantalla
       const diag = Math.hypot(w, h);
       const avgScatterTime = 2400;
       const avgSpeed = (diag * 0.55) / (avgScatterTime / 16);
@@ -233,10 +216,8 @@ export default function Home() {
       });
     };
 
-    // primera escena
     setupScene(MESSAGES[currentMsgIndexRef.current]);
 
-    // --- click: explota y forma el siguiente mensaje ---
     const reformTo = (message: string) => {
       const targets = buildGrainPoints(message);
       const ps = particlesRef.current;
@@ -253,7 +234,6 @@ export default function Home() {
       for (let i = 0; i < N; i++) {
         const from = ps[i] ?? originIdx(i);
         const to = targetIdx(i);
-        // “boom” desde su posición actual
         const u1 = Math.random() || 1e-6,
           u2 = Math.random();
         const R =
@@ -279,7 +259,6 @@ export default function Home() {
       particlesRef.current = next;
     };
 
-    // handlers de resize/orientación (debounce con rAF)
     let rId: number | null = null;
     const onResize = () => {
       if (rId) cancelAnimationFrame(rId);
@@ -290,7 +269,6 @@ export default function Home() {
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
 
-    // click sobre el canvas → alternar mensaje
     const onClick = () => {
       currentMsgIndexRef.current =
         (currentMsgIndexRef.current + 1) % MESSAGES.length;
@@ -310,7 +288,6 @@ export default function Home() {
       const w = cv.width / DPR,
         h = cv.height / DPR;
 
-      // Fondo
       const g = ctx.createLinearGradient(0, 0, 0, h);
       g.addColorStop(0, "#2b0a43");
       g.addColorStop(1, "#18062d");
@@ -330,7 +307,6 @@ export default function Home() {
       ctx.fillStyle = vignette;
       ctx.fillRect(0, 0, w, h);
 
-      // Estrellas
       for (const s of starsRef.current) {
         s.phase += s.speed * dt * 0.002;
         const a = 0.35 + 0.65 * (0.5 + 0.5 * Math.sin(s.phase));
@@ -345,7 +321,6 @@ export default function Home() {
       ctx.globalAlpha = 1;
       ctx.shadowBlur = 0;
 
-      // Estrellas fugaces ↘ (más despacio y menos seguidas)
       if (now >= nextMeteorAt.current) {
         const burst =
           Math.floor(
@@ -356,7 +331,7 @@ export default function Home() {
           const mx = spawnOnTop ? Math.random() * (w * 0.35) : -60;
           const my = spawnOnTop ? -40 : Math.random() * (h * 0.45);
           const angle = Math.PI / 4 + (Math.random() - 0.5) * (Math.PI / 18);
-          const speed = 4 + Math.random() * 3.5; // <-- más lento (antes 8.5–15)
+          const speed = 4 + Math.random() * 3.5;
           meteorsRef.current.push({ x: mx, y: my, angle, speed, life: 1 });
         }
         nextMeteorAt.current =
@@ -373,7 +348,7 @@ export default function Home() {
         const vy = Math.sin(m.angle) * m.speed * frame;
         m.x += vx;
         m.y += vy;
-        m.life -= dt * 0.0007; // <-- decae más lento para que se vean más tiempo
+        m.life -= dt * 0.0007;
 
         const headR = 2.0,
           tailLen = 150 * m.life,
@@ -415,7 +390,6 @@ export default function Home() {
       ctx.restore();
       meteorsRef.current = mKeep;
 
-      // Partículas del mensaje
       const dragScatter = Math.pow(0.985, frame);
       const dragGather = Math.pow(0.9, frame);
       ctx.fillStyle = PARTICLE_COLOR;
@@ -470,7 +444,6 @@ export default function Home() {
     };
   }, [opened]);
 
-  // Oculta la carta rápido tras abrirla
   useEffect(() => {
     if (!opened) return;
     const t = setTimeout(() => setHideEnvelope(true), 420);
@@ -497,7 +470,7 @@ export default function Home() {
               }`}
               style={{ outline: "none", display: "block", margin: "0 auto" }}
             >
-              {/* Escala responsiva con clamp + centrado */}
+              {/* Escala */}
               <svg
                 className={`envSvg ${opened ? "is-open" : ""}`}
                 viewBox="0 0 260 180"
